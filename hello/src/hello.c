@@ -15,10 +15,18 @@ const int NOT_OK = 1;
 
 struct event_config *cfg;
 struct event_base *base;
+struct event *hup_event;
 
 void log_debug(char *txt) {
 	printf("%s\n", txt);
 }
+
+void on_sighup(evutil_socket_t fd, short what, void *arg)
+{
+    //struct event *me = arg;
+    log_debug("on_sighup enter");
+}
+
 
 int init() {
 	int i;
@@ -39,6 +47,7 @@ int init() {
 	}
 	return NOT_OK;
 }
+
 
 int check() {
 	int i;
@@ -81,11 +90,11 @@ void deinit() {
 
 static int n_calls = 0;
 
-void cb_func(evutil_socket_t fd, short what, void *arg)
+void on_timer(evutil_socket_t fd, short what, void *arg)
 {
     struct event *me = arg;
     printf("cb_func called %d times so far.\n", ++n_calls);
-    if (n_calls > 10)
+    if (n_calls >= 10)
        event_del(me);
 }
 
@@ -119,13 +128,21 @@ void periodic_work() {
 	struct event *ev;
 	log_debug("work enter");
 	// setup a repeating timer to get called called N times
-	ev = event_new(base, -1, EV_PERSIST, cb_func, event_self_cbarg());
+	ev = event_new(base, -1, EV_PERSIST | EV_READ, on_timer, event_self_cbarg());
 	event_add(ev, &period);
+
+	// call sighup_function on a HUP signal
+	//hup_event = evsignal_new(base, SIGHUP, on_sighup, NULL);
+//	struct event *ev2;
+//	ev2 = event_new(base, SIGHUP, EV_SIGNAL|EV_PERSIST, on_sighup, NULL);
+//	event_add(ev2, NULL);
+
 	event_base_dispatch(base);
+
 	log_debug("work exit");
 }
 
-int main(void) {
+int main1(void) {
 	int rc;
 	rc = init();
 	if (rc == OK) {
